@@ -1,0 +1,1 @@
+"""Research paper assistant API."""
