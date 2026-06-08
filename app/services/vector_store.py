@@ -8,7 +8,11 @@ from app.services.chunker import TextChunk
 
 
 class VectorStore:
+    """Store and search text chunks in a Chroma collection."""
+
     def __init__(self, settings: Settings) -> None:
+        """Create the Chroma client and collection configured for this app."""
+
         self.settings = settings
         self.client = self._client()
         self.collection = self.client.get_or_create_collection(
@@ -19,6 +23,12 @@ class VectorStore:
         )
 
     def add_chunks(self, chunks: list[TextChunk]) -> None:
+        """Insert or replace chunks in the collection.
+
+        Chroma upsert uses each chunk id as the stable key, so re-ingesting the
+        same PDF updates existing chunks instead of adding duplicates.
+        """
+
         if not chunks:
             return
 
@@ -32,6 +42,12 @@ class VectorStore:
         )
 
     def search(self, query: str, *, k: int) -> list[dict[str, Any]]:
+        """Find the top matching chunks for a query.
+
+        The returned dictionaries match the shape expected by the reranker and
+        citation-building code in the RAG service.
+        """
+
         results = self.collection.query(query_texts=[query], n_results=k)
         ids = results.get("ids", [[]])[0]
         documents = results.get("documents", [[]])[0]
@@ -48,12 +64,16 @@ class VectorStore:
                     "text": text,
                     "source": metadata["source"],
                     "page": int(metadata["page"]),
+                    # Chroma returns distance where lower is better; downstream
+                    # code treats score as higher-is-better.
                     "score": 1.0 - float(distance),
                 }
             )
         return items
 
     def _client(self):
+        """Create either a remote Chroma HTTP client or a local persistent client."""
+
         if self.settings.chroma_host:
             return chromadb.HttpClient(
                 host=self.settings.chroma_host,

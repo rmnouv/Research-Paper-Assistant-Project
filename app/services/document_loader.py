@@ -4,6 +4,12 @@ from pypdf import PdfReader
 
 
 def load_pdf_pages(path: Path) -> list[tuple[int, str]]:
+    """Extract text from each page of a PDF.
+
+    Returns 1-based page numbers so citations match the page numbers readers
+    see in the PDF viewer.
+    """
+
     reader = PdfReader(str(path))
     pages: list[tuple[int, str]] = []
 

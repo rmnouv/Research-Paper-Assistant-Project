@@ -4,11 +4,17 @@ from app.config import Settings
 
 
 class Reranker:
+    """Use a cross-encoder model to reorder retrieved chunks by relevance."""
+
     def __init__(self, settings: Settings) -> None:
+        """Store settings and defer model loading until the first ranking call."""
+
         self.settings = settings
         self._model = None
 
     def rank(self, question: str, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Return retrieved items sorted by cross-encoder relevance score."""
+
         if not items:
             return []
 
@@ -23,6 +29,8 @@ class Reranker:
         return sorted(ranked, key=lambda item: item["score"], reverse=True)
 
     def _get_model(self):
+        """Load and cache the reranker model on demand."""
+
         if self._model is None:
             from sentence_transformers import CrossEncoder
 

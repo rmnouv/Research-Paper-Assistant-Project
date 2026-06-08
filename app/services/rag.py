@@ -10,13 +10,23 @@ from app.services.vector_store import VectorStore
 
 
 class RagService:
+    """Coordinate ingestion, retrieval, reranking, and answer generation."""
+
     def __init__(self, settings: Settings) -> None:
+        """Create the service dependencies from shared application settings."""
+
         self.settings = settings
         self.vector_store = VectorStore(settings)
         self.reranker = Reranker(settings)
         self.llm = LlmService(settings)
 
     def ingest_pdf(self, path: Path) -> int:
+        """Load a PDF, chunk every page, and write the chunks to the vector store.
+
+        Returns the number of chunks stored so API callers can report ingestion
+        progress to the user.
+        """
+
         all_chunks = []
         for page, text in load_pdf_pages(path):
             all_chunks.extend(
@@ -33,6 +43,8 @@ class RagService:
         return len(all_chunks)
 
     def answer(self, question: str) -> AskResponse:
+        """Retrieve evidence for a question and generate a cited answer."""
+
         retrieved = self.vector_store.search(question, k=self.settings.retrieval_k)
         ranked = self.reranker.rank(question, retrieved)[: self.settings.rerank_k]
         citations = [
