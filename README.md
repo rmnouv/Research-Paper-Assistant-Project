@@ -15,6 +15,61 @@ The app ingests PDF papers, chunks their pages, stores dense embeddings in Chrom
 - OpenAI-compatible answer generation layer
 - Docker Compose setup
 
+## Architecture
+
+```mermaid
+graph TD
+    subgraph Client
+        U([User])
+    end
+
+    subgraph Docker Compose
+        subgraph api ["API Service (port 8080)"]
+            FA[FastAPI]
+            RS[RagService]
+            DL[document_loader]
+            CK[chunker]
+            RR[Reranker\nCrossEncoder]
+            LLM[LlmService\nOpenAI]
+        end
+
+        subgraph chroma ["Chroma Service (port 8000)"]
+            VS[VectorStore\nChromaDB]
+            EM[SentenceTransformer\nEmbeddings]
+        end
+    end
+
+    subgraph Storage
+        UP[(data/uploads\nPDF files)]
+        CV[(chroma-data\nvector store)]
+    end
+
+    U -- "POST /papers\n(PDF file)" --> FA
+    U -- "POST /ask\n(question)" --> FA
+    U -- "GET /health" --> FA
+
+    FA -- ingest_pdf --> RS
+    FA -- answer --> RS
+
+    RS --> DL
+    DL -- "pages text" --> CK
+    CK -- "TextChunks" --> VS
+    VS --> EM
+    EM -- embeddings --> CV
+
+    RS -- "search(question, k=12)" --> VS
+    VS -- "top-k chunks" --> RR
+    RR -- "top-5 reranked" --> LLM
+    LLM -- "answer + citations" --> FA
+
+    DL -- reads --> UP
+    FA -- saves PDF --> UP
+```
+
+**Ingestion flow** (`POST /papers`): PDF → text extraction (pypdf, page-aware) → overlapping chunks → embeddings → ChromaDB upsert.
+
+**Query flow** (`POST /ask`): question → semantic search (k=12) → cross-encoder reranking (top 5) → OpenAI answer with inline citations.
+
 ## Project Structure
 
 ```text
